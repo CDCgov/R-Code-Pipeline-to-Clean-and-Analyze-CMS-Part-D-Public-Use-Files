@@ -1,0 +1,639 @@
+
+rm(list=ls()) 
+graphics.off()
+
+install.packages("tidyverse")
+install.packages("openxlsx")
+install.packages("dplyr")
+
+library(dplyr)
+library(tidyverse)
+library(readr)
+library(readxl)
+library(purrr)
+library(stringr)
+
+# Years to process
+years <- 2022:2023
+
+# Base directories
+base_dir     <- "C:/Downloads/CMS Part D PUF/Data" #This filepath to where the datasets live on your computer
+geodrugdir   <- file.path(base_dir, "Medicare Part D Prescribers - by Geography and Drug")
+enrolldir    <- file.path(base_dir, "Enrollment")
+providerdir  <- file.path(base_dir, "Medicare Part D Prescribers - by Provider")
+
+#convert numeric safely
+sas_numeric <- function(x) {suppressWarnings(as.numeric(as.character(x)))}
+
+#Geography and drug 
+
+read_geodrug <- function(year) {
+  f <- file.path(geodrugdir, paste0("Medicare_Part_D_Prescribers_by_Geography_and_Drug_", year, ".csv"))
+  readr::read_csv(f,
+                  col_types = cols(
+                    Prscrbr_Geo_Cd = col_character(),
+                    .default = col_guess()
+                  ),
+                  show_col_types = FALSE
+  ) |>
+    #Drop the territories and armed forces
+    filter(!Prscrbr_Geo_Desc %in% c(
+      "American Samoa", "Guam", "Northern Mariana Islands",
+      "Puerto Rico", "Virgin Islands", "Foreign Country",
+      "Unknown", "Armed Forces Europe", "Armed Forces Pacific",
+      "Armed Forces Central/South America"
+    )) |>
+    select(
+      Prscrbr_Geo_Lvl, Prscrbr_Geo_Cd, Prscrbr_Geo_Desc,Brnd_Name,
+      Gnrc_Name, Tot_Prscrbrs, Tot_Clms, Tot_Benes, GE65_Tot_Clms, Antbtc_Drug_Flag
+    ) |>
+    filter(Antbtc_Drug_Flag == "Y")
+}
+
+
+statedrug <- map(years, read_geodrug) |> set_names(years)
+#check
+statedrug21 <- read_geodrug(2021) # match with 2021 code(4627 obs 10 variables)
+
+
+
+##################################################################################################################################
+#Enrollment 
+
+read_enrollment <- function(year) {
+  f <- file.path(enrolldir, paste0("Enrollment", year, ".xlsx"))
+  df <- readxl::read_excel(f, sheet = "USE")  
+  if ("Total Part D Enrollees" %in% names(df)) {
+    df <- rename(df, Total_Part_D_Enrollees = `Total Part D Enrollees`)
+  }
+  df |>
+    select(state_name, Total_Part_D_Enrollees)
+}
+
+enrollment <- map(years, read_enrollment) %>% set_names(years)
+
+enr21 <- read_enrollment(2021)
+
+#matches with 2021 SAS and original 2021 2022 enrollment cms file: 52 obs, 2 variables
+####################################################################################################################################
+
+#Provider 
+
+raw2021csv_check <- readr::read_csv("C:/Users/ag97/Downloads/CMS Part D PUF/Data/Medicare Part D Prescribers - by Provider/Medicare_Part_D_Prescribers_by_Provider_2021.csv")
+
+#1,287,454 entries, 84 total columns for 2021, matches SAS when using csv
+
+read_provider <- function(year) {
+  f <- file.path(providerdir, paste0("Medicare_Part_D_Prescribers_by_Provider_", year, ".csv"))
+  readr::read_csv(f, show_col_types = FALSE) %>%
+    select(Prscrbr_NPI, Prscrbr_Type, Prscrbr_State_Abrvtn, Prscrbr_State_FIPS, Prscrbr_RUCA, Antbtc_Tot_Clms) %>%
+    filter(!Prscrbr_State_Abrvtn %in% c("XX","AA","AE","AP","AS","GU","MP","PR","PW","VI","ZZ")) %>%
+    mutate(Antbtc_Tot_Clms = suppressWarnings(as.numeric(gsub(",","", Antbtc_Tot_Clms)))) |>
+    filter(!is.na(Antbtc_Tot_Clms), Antbtc_Tot_Clms > 0)
+}
+
+prescriber <- map(years, read_provider) |> set_names(years)
+providercheck2021 <- read_provider(2021)
+
+#it matches 2021 SAS output. 699,196 entries, 6 total columns
+
+
+#################################################################################
+
+# Geocodes and crosswalk (Final list)
+geocodes <- readxl::read_excel(file.path(base_dir, "state-geocodes-v2020.xlsx"), sheet = "use")
+
+view(geocodes)
+
+abxorals <- readxl::read_excel(file.path(base_dir, "iqviaabxorals.xlsx"), sheet = "Final list") #56 obs, 5 var
+
+abxorals_cleaned <- abxorals %>% distinct(Gnrc_Name, .keep_all = TRUE) #remove duplicates
+
+
+#i have been using 2022 crosswalk. lets try 2021
+#abxcross <- readxl::read_excel(
+#  file.path(base_dir, "abxcrosswalk2021.xlsx"))
+
+#view(abxcross) #166 obs, 7 variables, Christine's says 9 variables?
+#abxcross_cleaned <- abxcross %>%
+ # distinct(Gnrc_Name, .keep_all = TRUE) %>%
+  #mutate(Gnrc_Name = toupper(trimws(Gnrc_Name)))
+
+
+###########################################################################################################
+#Datasets:
+#Prescriber data: prescriber, Geography data: geodrug
+#Abx Definition: abxorals, Part D Enrollee: enrollment, geocodes: geocodes
+
+###########################################################################################################
+#Analysis by state and abx agents and class, using geography data, ABX definition, geocodes, & enrollee data
+############################################################################################################
+
+#Create a list of unique abx | quality check to see if it matches SAS code.
+
+abx_summary <- map(statedrug, \(df) {
+  df%>%
+    distinct(Gnrc_Name)%>%
+    arrange(Gnrc_Name)
+})
+
+print(abx_summary[["2021"]], n = Inf) #n=inf allows you to see every single row in this dataset
+
+checkgeodrug <- map(statedrug, \(df) {
+  df%>%
+    count(Prscrbr_Geo_Cd, Prscrbr_Geo_Desc) %>%
+    arrange(Prscrbr_Geo_Cd)
+})
+print(checkgeodrug[["2021"]], n = Inf)
+
+#national n=166. matches with 2021 SAS output
+
+
+###############################################################################
+
+#*MERGE GEO DATA FOR REGIONS
+
+###############################################################################
+
+#Merge enrollment files and geocodes by state_name
+
+staterate_data <- map(years, \(y) {
+  enroll_year <- enrollment[[as.character(y)]]
+  inner_join(enroll_year, geocodes, by = "state_name")
+}) |>set_names(years)
+
+checkstaterate2021 <- (staterate_data[["2021"]])
+#matches with 2021 SAS outputs 52 obs. 9 variables (CK says 12 bc she kept all columns from enrollment file)
+
+################################################################################################################
+
+#MERGE PART D GEOGRAPHY DATA WITH STATE GEOGRAPHY AND ENROLLMENT FOR DENOMINATOR.
+georate <- map(years, \(y) {
+  drugdata <- statedrug[[as.character(y)]] %>%
+    mutate(FIPS_num = as.numeric(Prscrbr_Geo_Cd))
+  statelvlpop <- staterate_data[[as.character(y)]]%>%
+    mutate(FIPS_num = as.numeric(FIPS_num))
+  inner_join(statelvlpop, drugdata, by = "FIPS_num")
+  
+}) |>set_names(years)
+
+checkgeorate2021 <- georate[["2021"]]
+#4627 obs, 19 variables for 2021 MATCHES WITH SAS
+
+#LINK DRUG DATA TO ANTIBIOTIC DEFINITIONS (abxorals) TO SEE IQVIA CLASS CATAGORIZATION
+georate_abx <- map(georate, \(df) {
+  df %>%
+    inner_join(abxorals_cleaned, by = "Gnrc_Name")
+}) |>set_names(years)
+
+checkgeorateabx2021 <- georate_abx[["2021"]] 
+view(checkgeorateabx2021)
+
+#*2816  obs, 23 variables. SAS had 23 variables 2664 obs (abxorals file)
+#*MATCHES SAS WITH 2664 OBS AND 23 VARIABLES
+
+
+
+
+#######################################
+#TABLES BY STATE
+#######################################
+
+cal_staterates <- map(years, \(y) {
+  sum_state_data <- georate_abx[[as.character(y)]]%>%
+    group_by(state_name)%>%
+    summarize(
+      total_claims_bystate = sum(Tot_Clms, na.rm = TRUE),
+      total_prescribers_bystate = sum(Tot_Prscrbrs, na.rm = TRUE),
+      .groups = "drop"
+    )
+  #2 join the summarized data with total enrollee population by state
+  final_state_data <- sum_state_data %>%
+    left_join(staterate_data[[as.character(y)]], by = "state_name") %>%
+    #: rate 
+    mutate(abx_per1000enrollees = (total_claims_bystate / Total_Part_D_Enrollees) * 1000) %>%
+          select(
+            state_name,
+            total_claims_bystate,
+            total_prescribers_bystate,
+            Total_Part_D_Enrollees,
+            abx_per1000enrollees
+          )
+  return(final_state_data)
+}) |> set_names(years)
+
+view(cal_staterates[["2021"]])
+view(cal_staterates[["2022"]]) #matches with 2022.
+
+
+#*#############
+#*BY CLASS
+#*#############
+
+calc_classrates <- map(years, \(y) {
+  class_summary <- georate_abx[[as.character(y)]] %>%
+    mutate(
+      Tot_Clms = as.numeric(gsub("[^0-9.]", "", as.character(Tot_Clms)))
+    ) %>%
+    group_by(state_name, IQVIA_Class) %>%
+    summarize(
+      total_claims_byclass = sum(Tot_Clms, na.rm = TRUE),
+      .groups = "drop"
+    )
+  final_class_table <- class_summary %>%
+    left_join(staterate_data[[as.character(y)]], by = "state_name") %>%
+    mutate(
+      abx_per1000_byclass = (total_claims_byclass / Total_Part_D_Enrollees) * 1000
+    ) %>%
+    select(
+      state_name,
+      IQVIA_Class,
+      total_claims_byclass,
+      Total_Part_D_Enrollees,
+      abx_per1000_byclass
+    )
+  
+  return(final_class_table)
+}) %>% set_names(years)
+
+# View class level results
+View(calc_classrates[["2021"]])
+View(calc_classrates[["2022"]]) #matches 2022 SAS
+View(calc_classrates[["2023"]]) #matches
+
+
+
+###################
+#*BY AGENT
+#*#################
+
+options(scipen = 999) #to avoid scientific notation
+calc_agentrates <- map(years, \(y) {
+  agent_summary <- georate_abx[[as.character(y)]] %>%
+    mutate(
+      Tot_Clms = as.numeric(gsub("[^0-9.]", "", as.character(Tot_Clms)))
+    ) %>%
+    group_by(state_name, IQVIA_Class, CMS_gen_simplified) %>%
+    summarize(
+      total_claims_byagent = sum(Tot_Clms, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  final_agent_table <- agent_summary %>%
+    left_join(staterate_data[[as.character(y)]], by = "state_name") %>%
+    mutate(
+      abx_per1000_byagent = (total_claims_byagent / Total_Part_D_Enrollees) * 1000
+    ) %>%
+    select(
+      state_name,
+      IQVIA_Class,
+      CMS_gen_simplified,
+      total_claims_byagent,
+      Total_Part_D_Enrollees,
+      abx_per1000_byagent
+    )
+  
+  return(final_agent_table)
+}) %>% set_names(years)
+
+install.packages("openxlsx")
+library("openxlsx")
+statebyagent <- bind_rows(calc_agentrates)
+
+write.xlsx(statebyagent, "statebyagent.xlsx")
+
+View(calc_agentrates[["2021"]])
+View(calc_agentrates[["2022"]]) #matches mdp output
+View(calc_agentrates[["2023"]]) #matches mdp output
+
+#*######################################
+#*BY CENSUS REGIONS
+#*######################################
+
+calc_regionrates <- map(years, \(y) {
+  reg_claims_summary <- georate_abx[[as.character (y)]] %>%
+    mutate(
+      Tot_Clms = as.numeric(gsub("[^0-9.]", "", as.character(Tot_Clms))),
+      Tot_Prscrbrs = as.numeric(gsub("[^0-9.]", "", as.character(Tot_Prscrbrs)))
+    )%>%
+    group_by(reg_name) %>%
+    summarize(
+      total_claims_byregion = sum(Tot_Clms, na.rm = TRUE),
+      total_prescribers_byregion = sum(Tot_Prscrbrs, na.rm = TRUE),
+      .groups = "drop"
+    )
+  reg_enrollment_summary <- staterate_data[[as.character(y)]]%>%
+    group_by(reg_name)%>%
+    summarize(total_partD_enrollees_reg = sum(Total_Part_D_Enrollees, na.rm = TRUE),
+              .groups = "drop")
+  final_region_table <- reg_claims_summary %>%
+    left_join(reg_enrollment_summary, by = "reg_name") %>%
+    mutate(
+      abx_per1000_byreg = round((total_claims_byregion / total_partD_enrollees_reg) * 1000, 2)
+    ) %>%
+    select(reg_name, total_claims_byregion, total_prescribers_byregion, total_partD_enrollees_reg, abx_per1000_byreg)
+  return(final_region_table)
+}) |> set_names(years)
+
+view(calc_regionrates[["2021"]])
+view(calc_regionrates[["2022"]])
+view(calc_regionrates[["2023"]])
+
+#matches MPD by region for 2022 and 2023
+
+#*###################
+#*BY REGION AND CLASS
+#*###################
+
+calc_regionclassrates <- map(years, \(y) {
+  claims_classregion <- georate_abx[[as.character (y)]] %>%
+    mutate(
+      Tot_Clms = as.numeric(gsub("[^0-9.]", "", as.character(Tot_Clms)))
+    )%>%
+    group_by(reg_name, IQVIA_Class) %>%
+    summarize(
+      total_claims_byregionclass = sum(Tot_Clms, na.rm = TRUE),
+      .groups = "drop"
+    )
+  enrollee_classregion <- staterate_data[[as.character(y)]]%>%
+    group_by(reg_name)%>%
+    summarize(total_partD_enrollees_reg = sum(Total_Part_D_Enrollees, na.rm = TRUE),
+              .groups = "drop")
+  final_regionclass_table <- claims_classregion %>%
+    left_join(enrollee_classregion, by = "reg_name") %>%
+    mutate(
+      abx_per1000_byregclass = round((total_claims_byregionclass / total_partD_enrollees_reg) * 1000, 2)
+    ) %>%
+    select(reg_name, IQVIA_Class, total_claims_byregionclass, total_partD_enrollees_reg, abx_per1000_byregclass)
+  return(final_regionclass_table)
+}) |> set_names(years)
+
+
+view(calc_regionclassrates[["2022"]])
+view(calc_regionclassrates[["2023"]])
+
+#matches with MPD output!
+
+#*##########################
+#*BY REGION, CLASS AND AGENT
+#*##########################
+
+
+calc_regionclass_agent <- map(years, \(y) {
+  claims_agentregion <- georate_abx[[as.character (y)]] %>%
+    mutate(
+      Tot_Clms = as.numeric(gsub("[^0-9.]", "", as.character(Tot_Clms)))
+    )%>%
+    group_by(reg_name, IQVIA_Class, CMS_gen_simplified) %>%
+    summarize(
+      total_claims_byregionagent = sum(Tot_Clms, na.rm = TRUE),
+      .groups = "drop"
+    )
+  enrollee_agentregion <- staterate_data[[as.character(y)]]%>%
+    group_by(reg_name)%>%
+    summarize(total_partD_enrollees_reg = sum(Total_Part_D_Enrollees, na.rm = TRUE),
+              .groups = "drop")
+  final_regionagent_table <- claims_agentregion %>%
+    left_join(enrollee_agentregion, by = "reg_name") %>%
+    mutate(
+      abx_per1000_byreg_agent = round((total_claims_byregionagent / total_partD_enrollees_reg) * 1000, 2)
+    ) %>%
+    select(reg_name, IQVIA_Class, CMS_gen_simplified, total_claims_byregionagent, total_partD_enrollees_reg,
+           abx_per1000_byreg_agent)
+  return(final_regionagent_table)
+}) |> set_names(years)
+
+
+
+view(calc_regionclass_agent[["2022"]])
+view(calc_regionclass_agent[["2023"]])
+
+#matches
+
+#*####################################################################
+#*CALCULATE THE PROPORTION OF ANTIBIOTICS PRESCRIBED BY PROVIDER TYPE
+#*####################################################################
+
+
+#MERGE GEOCODES WITH PROVIDER_DIR BY STATE_ABBR (NEW FILE CALLED GEO_PROVIDER) TO GET STATE NAMES
+geo_provider <- map(years, \(y) {
+  prescriber_type <- prescriber[[as.character(y)]]
+  prescriber_geo <- prescriber_type%>% 
+    rename(state_abbr = Prscrbr_State_Abrvtn)%>%
+    inner_join(geocodes, by = "state_abbr")
+  return(prescriber_geo)
+}) |>set_names(years)
+
+view(geo_provider[["2022"]])
+
+#SUMMARIZE ANTIBIOTIC CLAIMS BY PROVIDER TYPE (WHO IS DRIVING PRESCRIBING BEHAVIOR?)
+national_list <- map(years, \(y) {
+  geoproviderdf <- geo_provider[[as.character(y)]]
+  provtype_num <- geoproviderdf %>%
+    group_by(Prscrbr_Type) %>%
+    summarize(
+      NumClaims = sum(Antbtc_Tot_Clms, na.rm = TRUE),
+      NumPrescribers = n_distinct(Prscrbr_NPI),
+      .groups = "drop")
+  #CALCULATE TOTAL NUMBER OF CLAIMS (sum(numclaims into :total claims)
+  
+  national_total_claims <- sum(provtype_num$NumClaims, na.rm = TRUE)
+  
+  #CALCULATE % OF CLAIMS BY PROVIDERS
+  provider_percentage <- provtype_num %>%
+    mutate(
+      PercentClaims = (NumClaims / national_total_claims) * 100,
+      year = y) %>%
+    arrange(desc(PercentClaims)) 
+  
+  # CREATE TOP 8  AND OTHER CATAGORIZATION
+  top8 <- provider_percentage %>% slice_head(n=8)
+  other <-  provider_percentage %>% slice(9:n())
+  
+  #AGGREGATE OTHER CATAGORY
+  other_aggregate <- other %>%
+    summarize(
+      Prscrbr_Type = "Other",
+      NumPrescribers = sum(NumPrescribers, na.rm = TRUE),
+      NumClaims = sum(NumClaims, na.rm= TRUE),
+      PercentClaims = (NumClaims / national_total_claims) * 100,
+      year = y)
+  #CONCATENATE TOP 8 WITH AGGREGATED OTHER
+  final_year_data <- bind_rows(top8, other_aggregate)
+  return(final_year_data)
+})
+
+#big summary table
+final_national_abx_claims <- bind_rows(national_list)
+
+#matches MPD output 
+
+#########################################################################
+#* National summary --> grouped summary by state and provider type. 
+#* This section will calculate the top 8 provider type within each state
+#########################################################################
+
+final_state_provider_list <- map(years, \(y){
+  provider_state_summary <- geo_provider[[as.character(y)]]%>%
+  group_by(state_name, Prscrbr_Type)%>%
+    summarize(
+      NumClaims = sum(Antbtc_Tot_Clms, na.rm = TRUE),
+      NumPrescribers = sum(!is.na (Prscrbr_NPI)),
+      year = y,
+      .groups = "drop")
+  
+  #CALCULATE STATE TOTALS AND %
+  
+  provider_state_perc <- provider_state_summary%>%
+    group_by(state_name)%>%
+    mutate(
+      StateTotalClaims = sum(NumClaims, na.rm = TRUE),
+      PercentClaims = (NumClaims / StateTotalClaims) * 100,
+      year = y) %>%
+    arrange(state_name, desc(PercentClaims)) %>%
+    ungroup()
+  
+  #CREATE TOP 8
+  statetop8 <- provider_state_perc %>%
+    group_by(state_name) %>%
+    slice_head(n=8) %>%
+    ungroup()
+  
+  #OTHER
+  state_other <- provider_state_perc%>%
+    group_by(state_name) %>%
+    slice(-(1:8)) %>%
+    summarize(
+      Prscrbr_Type = "Other",
+      NumPrescribers = sum(NumPrescribers, na.rm= TRUE),
+      NumClaims = sum(NumClaims, na.rm = TRUE),
+      PercentClaims = sum(PercentClaims, na.rm = TRUE),
+      year= first(year),
+      .groups = "drop")
+  
+  #CONCATENATE
+  bind_rows(statetop8, state_other)%>%
+    arrange(state_name, desc(PercentClaims))
+}) |> set_names(years)
+
+#large table summary
+
+final_provider_claims <- bind_rows(final_state_provider_list)
+
+########################################################
+
+#next will show the full provider specialty list
+
+########################################################
+provider_type_all <- map(years, \(y){
+  
+  national_enrollees <- sum(staterate_data[[as.character(y)]]$Total_Part_D_Enrollees, na.rm = TRUE)
+  
+  national_summary <- geo_provider[[as.character(y)]]%>%
+    group_by(Prscrbr_Type)%>%
+    summarize(
+      NumPrescribers = sum(!is.na (Prscrbr_NPI)),
+      NumClaims = sum(Antbtc_Tot_Clms, na.rm = TRUE),
+      year = y,
+      .groups = "drop")
+  
+  national_total_claims <- sum(national_summary$NumClaims, na.rm = TRUE)
+  
+  national_all_type <- national_summary%>%
+    mutate(
+      PercentClaims = (NumClaims / national_total_claims) * 100,
+      rateper1000 = (NumClaims / national_enrollees) * 1000
+  )%>%
+    arrange(desc(NumClaims))%>%
+    relocate(year)
+ 
+   return(national_all_type)
+}) |> set_names(years)
+
+full_specialty <- bind_rows(provider_type_all)
+
+write.xlsx(full_specialty, "full specialty only.xlsx")
+
+#############################################################################
+#* Final step is to move all of the tables into an excel
+#* This is a 3-step creation of the output that can be formatted if wanted. 
+#* 1. Create a workbook
+#* 2. Add empty sheets (tabs) as placeholders
+#* 3. Load in the tables from the Lists made in earlier steps.
+#############################################################################
+install.packages("openxlsx")
+library(openxlsx)
+
+wb <- createWorkbook()
+write_two_years <- function(wb, sheet_name, data_2022, data_2023) {
+  addWorksheet(wb, sheet_name)
+  # Write 2022
+  writeData(wb, sheet = sheet_name,
+            x = "Year: 2022",
+            startRow = 1, startCol = 1)
+  
+  writeData(wb, sheet = sheet_name,
+            x = data_2022,
+            startRow = 2, startCol = 1)
+  
+  # determine where 2023 will start
+  next_row <- nrow(data_2022) + 4
+  
+  writeData(wb, sheet = sheet_name,
+            x = "Year: 2023",
+            startRow = next_row - 1, startCol = 1)
+  
+  writeData(wb, sheet = sheet_name,
+            x = data_2023,
+            startRow = next_row, startCol = 1)
+}
+write_two_years(
+  wb,
+  sheet_name = "By State",
+  data_2022 = cal_staterates[["2022"]],
+  data_2023 = cal_staterates[["2023"]]
+)
+write_two_years(
+  wb,
+  sheet_name = "By Class",
+  data_2022 = calc_classrates[["2022"]],
+  data_2023 = calc_classrates[["2023"]]
+)
+write_two_years(
+  wb,
+  sheet_name = "By Agent",
+  data_2022 = calc_agentrates[["2022"]],
+  data_2023 = calc_agentrates[["2023"]]
+)
+write_two_years(
+  wb,
+  sheet_name = "By Regions",
+  data_2022 = calc_regionrates[["2022"]],
+  data_2023 = calc_regionrates[["2023"]]
+)
+write_two_years(
+  wb,
+  sheet_name = "By Region and Class",
+  data_2022 = calc_regionclassrates[["2022"]],
+  data_2023 = calc_regionclassrates[["2023"]]
+)
+write_two_years(
+  wb,
+  sheet_name = "By Region Class Agent",
+  data_2022 = calc_regionclass_agent[["2022"]],
+  data_2023 = calc_regionclass_agent[["2023"]]
+)
+addWorksheet(wb, "Final National ABX Claims")
+writeData(wb, "Final National ABX Claims", final_national_abx_claims)
+addWorksheet(wb, "Final Provider Claims")
+writeData(wb, "Provider Type Full", full_specialty)
+
+saveWorkbook(
+  wb,
+  file = "CMS_PUF_PartD_Results_2022_2023.xlsx",
+  overwrite = TRUE
+)
+#*This will save it onto your working directory which you can check using [getwd()],
+#*but if there is a specific place you want it to be downloaded, write in the location in "file = "
+
+
