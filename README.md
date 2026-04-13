@@ -50,7 +50,9 @@ CDC AR&PSP: Outpatient Antibiotic Use: Pharmacy Prescriptions dispensed to Medic
 
 **CDC Published articles using MPD PUFs:**
 	• [Identifying Higher-Volume Antibiotic Outpatient Prescribers Using Publicly Available Medicare Part D Data — United States, 2019 | MMWR](https://www.cdc.gov/mmwr/volumes/71/wr/mm7106a3.htm)
+	
 	• [Comparison of outpatient antibiotic prescriptions among older adults in IQVIA Xponent and publicly available Medicare Part D data, 2018 - PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC9972535/)
+	
 	• [Assessment of High-Volume Antibiotic and Opioid Prescribing by Medicare Part D Prescribers―United States, 2021 - Axel A. Vazquez Deida, Christine Kim, Katryna A. Gouin, Kun Zhang, Christina A. Mikosz, Melinda M. Neuhauser, Sarah Kabbani, 2026](https://pubmed.ncbi.nlm.nih.gov/41287412/)
 
 
