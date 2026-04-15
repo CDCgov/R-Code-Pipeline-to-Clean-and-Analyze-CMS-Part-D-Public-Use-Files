@@ -1,3 +1,17 @@
+#*##############
+#GITHUB VERSION
+################
+#*Medicare Public Use Files Part D Data Analysis (v.1)
+#*Programmer: Ruth Demissie
+#*Adapted from Christine Kim's SAS Code
+#**Summary: Automates the cleaning and analysis of CMS Part D PUF to track 
+#*antibiotic use by state,region, drug class and provider specialty. 
+#*Data sources: 
+#*Prescribers by geography and drug: https://data.cms.gov/provider-summary-by-type-of-service/medicare-part-d-prescribers/medicare-part-d-prescribers-by-geography-and-drug
+#*Enrollment: https://data.cms.gov/summary-statistics-on-beneficiary-enrollment/medicare-and-medicaid-reports/cms-program-statistics-medicare-part-d-enrollment
+#*Prescribers - by Provider: https://data.cms.gov/provider-summary-by-type-of-service/medicare-part-d-prescribers/medicare-part-d-prescribers-by-provider
+
+#*##############################################################################
 
 rm(list=ls()) 
 graphics.off()
@@ -12,12 +26,13 @@ library(readr)
 library(readxl)
 library(purrr)
 library(stringr)
+library(openxlsx)
 
 # Years to process
 years <- 2022:2023
 
 # Base directories
-base_dir     <- "C:/Downloads/CMS Part D PUF/Data" #This filepath to where the datasets live on your computer
+base_dir     <- "C:/Users/Downloads/CMS Part D PUF/Data" #INSERT YOUR FILEPATH TO THE CMS DOCUMENTS HERE
 geodrugdir   <- file.path(base_dir, "Medicare Part D Prescribers - by Geography and Drug")
 enrolldir    <- file.path(base_dir, "Enrollment")
 providerdir  <- file.path(base_dir, "Medicare Part D Prescribers - by Provider")
@@ -25,7 +40,7 @@ providerdir  <- file.path(base_dir, "Medicare Part D Prescribers - by Provider")
 #convert numeric safely
 sas_numeric <- function(x) {suppressWarnings(as.numeric(as.character(x)))}
 
-#Geography and drug 
+#Load in Geography and drug file
 
 read_geodrug <- function(year) {
   f <- file.path(geodrugdir, paste0("Medicare_Part_D_Prescribers_by_Geography_and_Drug_", year, ".csv"))
@@ -50,15 +65,16 @@ read_geodrug <- function(year) {
     filter(Antbtc_Drug_Flag == "Y")
 }
 
-
 statedrug <- map(years, read_geodrug) |> set_names(years)
+
 #check
-statedrug21 <- read_geodrug(2021) # match with 2021 code(4627 obs 10 variables)
+statedrug23 <- read_geodrug(2023) #10 variables
 
 
 
-##################################################################################################################################
+###################################
 #Enrollment 
+###################################
 
 read_enrollment <- function(year) {
   f <- file.path(enrolldir, paste0("Enrollment", year, ".xlsx"))
@@ -74,14 +90,11 @@ enrollment <- map(years, read_enrollment) %>% set_names(years)
 
 enr21 <- read_enrollment(2021)
 
-#matches with 2021 SAS and original 2021 2022 enrollment cms file: 52 obs, 2 variables
-####################################################################################################################################
+#52 obs, 2 variables
 
+###############################
 #Provider 
-
-raw2021csv_check <- readr::read_csv("C:/Users/ag97/Downloads/CMS Part D PUF/Data/Medicare Part D Prescribers - by Provider/Medicare_Part_D_Prescribers_by_Provider_2021.csv")
-
-#1,287,454 entries, 84 total columns for 2021, matches SAS when using csv
+###############################
 
 read_provider <- function(year) {
   f <- file.path(providerdir, paste0("Medicare_Part_D_Prescribers_by_Provider_", year, ".csv"))
@@ -93,67 +106,47 @@ read_provider <- function(year) {
 }
 
 prescriber <- map(years, read_provider) |> set_names(years)
-providercheck2021 <- read_provider(2021)
+providercheck2023 <- read_provider(2023)
 
-#it matches 2021 SAS output. 699,196 entries, 6 total columns
+#6 total columns
 
 
-#################################################################################
+########################################
 
 # Geocodes and crosswalk (Final list)
+
+########################################
+#update code below to reflect the filename of your geocodes
 geocodes <- readxl::read_excel(file.path(base_dir, "state-geocodes-v2020.xlsx"), sheet = "use")
 
 view(geocodes)
+
+#'iqviaabxorals' is the name of the crosswalk. Change it to the file name of your crosswalk/antibiotic defintions file
 
 abxorals <- readxl::read_excel(file.path(base_dir, "iqviaabxorals.xlsx"), sheet = "Final list") #56 obs, 5 var
 
 abxorals_cleaned <- abxorals %>% distinct(Gnrc_Name, .keep_all = TRUE) #remove duplicates
 
 
-#i have been using 2022 crosswalk. lets try 2021
-#abxcross <- readxl::read_excel(
-#  file.path(base_dir, "abxcrosswalk2021.xlsx"))
+#################################################################################
+#Datasets created so far:
 
-#view(abxcross) #166 obs, 7 variables, Christine's says 9 variables?
-#abxcross_cleaned <- abxcross %>%
- # distinct(Gnrc_Name, .keep_all = TRUE) %>%
-  #mutate(Gnrc_Name = toupper(trimws(Gnrc_Name)))
+#Part D Enrollee: enrollment
+#Prescriber data: prescriber
+#Geography data: geodrug
+#Abx Definition: abxorals
+#geocodes: geocodes
 
+#################################################################################
+#Analysis by state and abx agents and class, using geography data, ABX definition
+#geocodes, & enrollee data
+##################################################################################
 
-###########################################################################################################
-#Datasets:
-#Prescriber data: prescriber, Geography data: geodrug
-#Abx Definition: abxorals, Part D Enrollee: enrollment, geocodes: geocodes
+###############################################
 
-###########################################################################################################
-#Analysis by state and abx agents and class, using geography data, ABX definition, geocodes, & enrollee data
-############################################################################################################
+#*MERGE GEOGRAPHY DATA FOR REGIONS
 
-#Create a list of unique abx | quality check to see if it matches SAS code.
-
-abx_summary <- map(statedrug, \(df) {
-  df%>%
-    distinct(Gnrc_Name)%>%
-    arrange(Gnrc_Name)
-})
-
-print(abx_summary[["2021"]], n = Inf) #n=inf allows you to see every single row in this dataset
-
-checkgeodrug <- map(statedrug, \(df) {
-  df%>%
-    count(Prscrbr_Geo_Cd, Prscrbr_Geo_Desc) %>%
-    arrange(Prscrbr_Geo_Cd)
-})
-print(checkgeodrug[["2021"]], n = Inf)
-
-#national n=166. matches with 2021 SAS output
-
-
-###############################################################################
-
-#*MERGE GEO DATA FOR REGIONS
-
-###############################################################################
+###############################################
 
 #Merge enrollment files and geocodes by state_name
 
@@ -163,11 +156,10 @@ staterate_data <- map(years, \(y) {
 }) |>set_names(years)
 
 checkstaterate2021 <- (staterate_data[["2021"]])
-#matches with 2021 SAS outputs 52 obs. 9 variables (CK says 12 bc she kept all columns from enrollment file)
 
-################################################################################################################
 
 #MERGE PART D GEOGRAPHY DATA WITH STATE GEOGRAPHY AND ENROLLMENT FOR DENOMINATOR.
+
 georate <- map(years, \(y) {
   drugdata <- statedrug[[as.character(y)]] %>%
     mutate(FIPS_num = as.numeric(Prscrbr_Geo_Cd))
@@ -178,7 +170,7 @@ georate <- map(years, \(y) {
 }) |>set_names(years)
 
 checkgeorate2021 <- georate[["2021"]]
-#4627 obs, 19 variables for 2021 MATCHES WITH SAS
+
 
 #LINK DRUG DATA TO ANTIBIOTIC DEFINITIONS (abxorals) TO SEE IQVIA CLASS CATAGORIZATION
 georate_abx <- map(georate, \(df) {
@@ -186,13 +178,9 @@ georate_abx <- map(georate, \(df) {
     inner_join(abxorals_cleaned, by = "Gnrc_Name")
 }) |>set_names(years)
 
-checkgeorateabx2021 <- georate_abx[["2021"]] 
-view(checkgeorateabx2021)
+checkgeorateabx2021 <- georate_abx[["2023"]] 
 
-#*2816  obs, 23 variables. SAS had 23 variables 2664 obs (abxorals file)
-#*MATCHES SAS WITH 2664 OBS AND 23 VARIABLES
-
-
+view(checkgeorateabx2023)
 
 
 #######################################
@@ -212,18 +200,18 @@ cal_staterates <- map(years, \(y) {
     left_join(staterate_data[[as.character(y)]], by = "state_name") %>%
     #: rate 
     mutate(abx_per1000enrollees = (total_claims_bystate / Total_Part_D_Enrollees) * 1000) %>%
-          select(
-            state_name,
-            total_claims_bystate,
-            total_prescribers_bystate,
-            Total_Part_D_Enrollees,
-            abx_per1000enrollees
-          )
+    select(
+      state_name,
+      total_claims_bystate,
+      total_prescribers_bystate,
+      Total_Part_D_Enrollees,
+      abx_per1000enrollees
+    )
   return(final_state_data)
 }) |> set_names(years)
 
-view(cal_staterates[["2021"]])
-view(cal_staterates[["2022"]]) #matches with 2022.
+
+view(cal_staterates[["2023"]]) 
 
 
 #*#############
@@ -257,9 +245,8 @@ calc_classrates <- map(years, \(y) {
 }) %>% set_names(years)
 
 # View class level results
-View(calc_classrates[["2021"]])
-View(calc_classrates[["2022"]]) #matches 2022 SAS
-View(calc_classrates[["2023"]]) #matches
+
+View(calc_classrates[["2023"]])
 
 
 
@@ -296,15 +283,7 @@ calc_agentrates <- map(years, \(y) {
   return(final_agent_table)
 }) %>% set_names(years)
 
-install.packages("openxlsx")
-library("openxlsx")
-statebyagent <- bind_rows(calc_agentrates)
-
-write.xlsx(statebyagent, "statebyagent.xlsx")
-
-View(calc_agentrates[["2021"]])
-View(calc_agentrates[["2022"]]) #matches mdp output
-View(calc_agentrates[["2023"]]) #matches mdp output
+View(calc_agentrates[["2023"]]) 
 
 #*######################################
 #*BY CENSUS REGIONS
@@ -335,11 +314,10 @@ calc_regionrates <- map(years, \(y) {
   return(final_region_table)
 }) |> set_names(years)
 
-view(calc_regionrates[["2021"]])
-view(calc_regionrates[["2022"]])
+
 view(calc_regionrates[["2023"]])
 
-#matches MPD by region for 2022 and 2023
+
 
 #*###################
 #*BY REGION AND CLASS
@@ -369,10 +347,9 @@ calc_regionclassrates <- map(years, \(y) {
 }) |> set_names(years)
 
 
-view(calc_regionclassrates[["2022"]])
+
 view(calc_regionclassrates[["2023"]])
 
-#matches with MPD output!
 
 #*##########################
 #*BY REGION, CLASS AND AGENT
@@ -405,10 +382,8 @@ calc_regionclass_agent <- map(years, \(y) {
 
 
 
-view(calc_regionclass_agent[["2022"]])
 view(calc_regionclass_agent[["2023"]])
 
-#matches
 
 #*####################################################################
 #*CALCULATE THE PROPORTION OF ANTIBIOTICS PRESCRIBED BY PROVIDER TYPE
@@ -466,7 +441,6 @@ national_list <- map(years, \(y) {
 #big summary table
 final_national_abx_claims <- bind_rows(national_list)
 
-#matches MPD output 
 
 #########################################################################
 #* National summary --> grouped summary by state and provider type. 
@@ -475,7 +449,7 @@ final_national_abx_claims <- bind_rows(national_list)
 
 final_state_provider_list <- map(years, \(y){
   provider_state_summary <- geo_provider[[as.character(y)]]%>%
-  group_by(state_name, Prscrbr_Type)%>%
+    group_by(state_name, Prscrbr_Type)%>%
     summarize(
       NumClaims = sum(Antbtc_Tot_Clms, na.rm = TRUE),
       NumPrescribers = sum(!is.na (Prscrbr_NPI)),
@@ -543,11 +517,11 @@ provider_type_all <- map(years, \(y){
     mutate(
       PercentClaims = (NumClaims / national_total_claims) * 100,
       rateper1000 = (NumClaims / national_enrollees) * 1000
-  )%>%
+    )%>%
     arrange(desc(NumClaims))%>%
     relocate(year)
- 
-   return(national_all_type)
+  
+  return(national_all_type)
 }) |> set_names(years)
 
 full_specialty <- bind_rows(provider_type_all)
@@ -557,9 +531,10 @@ write.xlsx(full_specialty, "full specialty only.xlsx")
 #############################################################################
 #* Final step is to move all of the tables into an excel
 #* This is a 3-step creation of the output that can be formatted if wanted. 
-#* 1. Create a workbook
-#* 2. Add empty sheets (tabs) as placeholders
-#* 3. Load in the tables from the Lists made in earlier steps.
+  #* 1. Create a workbook
+  #* 2. Add empty sheets (tabs) as placeholders
+  #* 3. Load in the tables from the Lists made in earlier steps.
+#* Make sure you have loaded in the necessary packages before running (openxlsx)
 #############################################################################
 install.packages("openxlsx")
 library(openxlsx)
@@ -567,7 +542,7 @@ library(openxlsx)
 wb <- createWorkbook()
 write_two_years <- function(wb, sheet_name, data_2022, data_2023) {
   addWorksheet(wb, sheet_name)
-  # Write 2022
+  # write 2022
   writeData(wb, sheet = sheet_name,
             x = "Year: 2022",
             startRow = 1, startCol = 1)
@@ -577,7 +552,7 @@ write_two_years <- function(wb, sheet_name, data_2022, data_2023) {
             startRow = 2, startCol = 1)
   
   # determine where 2023 will start
-  next_row <- nrow(data_2022) + 4
+  next_row <- nrow(data_2022) + 5
   
   writeData(wb, sheet = sheet_name,
             x = "Year: 2023",
@@ -630,9 +605,11 @@ writeData(wb, "Provider Type Full", full_specialty)
 
 saveWorkbook(
   wb,
-  file = "CMS_PUF_PartD_Results_2022_2023.xlsx",
-  overwrite = TRUE
-)
+  file = "CMS_PUF_PartD_Results_2022_2023.xlsx", 
+  overwrite = TRUE)
+
+#*This will save it onto your working directory which you can check bu running [getwd()],
+#*but if there is a specific place you want it to be downloaded, write in the location in "file = "
 #*This will save it onto your working directory which you can check using [getwd()],
 #*but if there is a specific place you want it to be downloaded, write in the location in "file = "
 
