@@ -5,81 +5,122 @@
 - Short description: Automates the cleaning and analysis of CMS Part D PUF to track antibiotic use by state, region, drug class and provider specialty. 
 - Code language: R
 - Share IT exemption status: None
-# R Code Pipeline to Clean and Analyze CMS Part D Public Use Files: README
+# R Code Pipeline to Clean and Analyze CMS Part D Public Use Files
 
 # **Background**
 
-This R code provides pipeline that automates the cleaning and analysis of CMS Part D PUF to track 
-antibiotic use by state, region, drug class and provider specialty. The code outputs a comprehensive Excel file with all datasets/tables created:  by state, state and agent, state and antibiotic class, region, region and agent, region and antibiotic class, national summary of top 8 specialties (prescriber type), and national summary of all prescribers/specialties. 
+This R code provides pipeline that automates the cleaning and analysis of Centers for Medicare and Medicaid Services (CMS) Part D Public Use Files (PUF) to track antibiotic use by state, region, drug class and provider specialty. The code outputs a comprehensive Excel file with all datasets/tables created:  by state, state and agent, state and antibiotic class, region, region and agent, region and antibiotic class, national summary of top 8 specialties (prescriber type), and national summary of all prescribers/specialties. 
 
-### **Who is this for and why**
+### **Who is this for**
 	• STLT public health programs monitoring outpatient antibiotic stewardship
 	• Epidemiologists and analysts working with CMS Part D PUFs
 	• Researchers comparing trends by geography, antibiotic class, and specialty
 	• Program evaluators needing standardized outputs for dashboards and reports
 This pipeline automates the ingestion of CMS Part D PUFs, cleans and standardizes fields, applies geographic and antibiotic class mappings, and produces a single Excel workbook containing analysis-ready summaries at state, region, national, and specialty levels.
 
+### **What you get (outputs)***
+A single Excel workbook with these sheets:
 
-### **Data Sources:**
-Prescribers by geography and drug: https://data.cms.gov/provider-summary-by-type-of-service/medicare-part-d-prescribers/medicare-part-d-prescribers-by-geography-and-drug
+• By State
 
-Enrollment: https://data.cms.gov/summary-statistics-on-beneficiary-enrollment/medicare-and-medicaid-reports/cms-program-statistics-medicare-part-d-enrollment
+• By State and Agent
 
-Prescribers - by Provider: https://data.cms.gov/provider-summary-by-type-of-service/medicare-part-d-prescribers/medicare-part-d-prescribers-by-provider
+• By State and Class
 
-For further information on data use, you can consult the dataset Methodological Overview document provided by CMS (updated March 2025) here: (https://data.cms.gov/sites/default/files/2025-04/MUP_DPR_RY25_20250401_Methodology_508.pdf)
+• By Region
 
-### **Accessory files (crosswalks/mappings) used in this analysis:**
-- Antibiotic agent crosswalk (file name in the code: 'abxorals')
-- Geocodes for STLT reporting alignment (file name in the code: 'geocodes')
+• By Region and Agent
 
+• By Region and Class
+
+• Top 8 Specialties (national)
+
+• Full Specialty List (national)
+
+
+Each sheet includes standardized fields; see “Metrics and definitions” below.
+
+**Notes on outputs:**
+
+• National rows are included and appear under the State column as “National.” Because sheets are alphabetically sorted, national rows may not appear at the top
+
+• Regions follow U.S. Census designations: Midwest, Northeast, South, West. The last row is the national aggregate 
+
+• For Top 8 Specialities Table, you will have create a new column in Excel to calculate prescribing rate (Number of antibiotic prescriptions/number of prescribers)*1000
+
+
+### **Data Sources Needed to Run Code:**
+[Prescribers by Geography and Drug](https://data.cms.gov/provider-summary-by-type-of-service/medicare-part-d-prescribers/medicare-part-d-prescribers-by-geography-and-drug)
+
+[Enrollment](https://data.cms.gov/summary-statistics-on-beneficiary-enrollment/medicare-and-medicaid-reports/cms-program-statistics-medicare-part-d-enrollment)
+
+[Prescribers - by Provider](https://data.cms.gov/provider-summary-by-type-of-service/medicare-part-d-prescribers/medicare-part-d-prescribers-by-provider)
+
+[For further information on data use, you can consult the dataset Methodological Overview document provided by CMS (updated March 2025) found here](https://data.cms.gov/sites/default/files/2025-04/MUP_DPR_RY25_20250401_Methodology_508.pdf)
+
+**Accessory files (crosswalks/mappings) used in this analysis:**
+
+• Antibiotic agent crosswalk (file name in the code: 'abxorals')
+
+• Geocodes for STLT reporting alignment (file name in the code: 'geocodes')
+
+**Metrics and definitions**
+
+• NumClaims: Count of antibiotic prescription claims.
+
+• NumPrescribers: Count of prescribers with antibiotic claims in the unit.
+
+• Enrollees: Total Medicare Part D beneficiaries (from Enrollment data).
+
+• Rate per 1,000 prescribers: (NumClaims / NumPrescribers) * 1000.
+
+• Prescriber Type / Specialty: Prescriber type as defined in CMS PUFs.
+
+• Agent: Specific antibiotic agent name.
+
+• Class: Antibiotic class as defined in the crosswalk.
 
 ### **Information included in Final Excel Output, by tab/sheet:**
 
-**By State**: State, number of antibiotic prescriptions (NumClaims), number of prescribers (NumPrescribers), number of part D enrollees (total beneficiaries), prescriptions per 1,000 enrollees, year
+**By State**: State, number of antibiotic prescriptions (```NumClaims```), number of prescribers (```NumPrescribers```), number of part D enrollees, prescriptions per 1,000 enrollees, year
 
-* <ins>_By state and agent_</ins>: State, number of antibiotic prescriptions (NumClaims), number of prescribers (NumPrescribers), number of part D enrollees (total beneficiaries), prescriptions per 1,000 enrollees, year, antibiotic agent
+* <ins>_By state and agent_</ins>: State, number of antibiotic prescriptions (```NumClaims```), number of prescribers (```NumPrescribers```), number of part D enrollees, prescriptions per 1,000 enrollees, year, antibiotic agent
 
-* <ins>_By state and antibiotic class_</ins>: State, number of antibiotic prescriptions (NumClaims), number of prescribers(NumPrescribers), number of part D enrollees (total beneficiaries), prescriptions per 1,000 enrollees, year, antibiotic class
+* <ins>_By state and antibiotic class_</ins>: State, number of antibiotic prescriptions (```NumClaims```), number of prescribers(```NumPrescribers```), number of part D enrollees, prescriptions per 1,000 enrollees, year, antibiotic class
   
 *   These also include 'national' under the 'State' column and it is organized in alphabetical order, so it is not visible at the top. Please be mindful of the 'National' rows.
 
-**By Region**: Region, number of antibiotic prescriptions (NumClaims), number of prescribers (NumPrescribers), number of part D enrollees (total beneficiaries), prescriptions per 1,000 enrollees, year
+**By Region**: Region, number of antibiotic prescriptions (```NumClaims```), number of prescribers (```NumPrescribers```), number of part D enrollees, prescriptions per 1,000 enrollees, year
 
-* <ins>_By Region and agent_</ins>: Region, number of antibiotic prescriptions (NumClaims), number of prescribers (NumPrescribers), number of part D enrollees (total beneficiaries), prescriptions per 1,000 enrollees, year, agent
+* <ins>_By Region and agent_</ins>: Region, number of antibiotic prescriptions (```NumClaims```), number of prescribers (```NumPrescribers```), number of part D enrollees, prescriptions per 1,000 enrollees, year, agent
 
-* <ins>_By Region and antibiotic class_</ins>: Region, number of antibiotic prescriptions (NumClaims), number of prescribers (NumPrescribers), number of part D enrollees (total beneficiaries), prescriptions per 1,000 enrollees, year, antibiotic class
+* <ins>_By Region and antibiotic class_</ins>: Region, number of antibiotic prescriptions (```NumClaims```), number of prescribers (```NumPrescribers```), number of part D enrollees, prescriptions per 1,000 enrollees, year, antibiotic class
 	  
 
-**Top 8 Specialties**: Prescriber specialty, Number of prescribers (NumPrescribers), number of antibiotic prescriptions (NumClaims), Year, percent of antibiotic prescriptions, Prescribing rate per 1,000. 
+**Top 8 Specialties**: Prescriber specialty, Number of prescribers (```NumPrescribers```), number of antibiotic prescriptions (```NumClaims```), Year, percent of antibiotic prescriptions, Prescribing rate per 1,000. 
 
 
-**Full Specialty List:**  Prescriber Type (Prsrbr_type), Number of prescribers (NumPrescribers), Number of antibiotic prescriptions (NumClaims), Percent Claims, Rate per 1,000
-
->[!NOTE]
->Notes: National totals may appear as “National” under the State column; these are sorted alphabetically and may not be at the top.
-
-> Regions use Census designations: Midwest, Northeast, South, West. Last rows include national aggregates.
-
-> For Top 8 Specialities Table, you will have create a new column in Excel to calculate prescribing rate (Number of antibiotic prescriptions/number of prescribers)*1000
-
+**Full Specialty List:**  Prescriber Type (```Prsrbr_type```), Number of prescribers (```NumPrescribers```), Number of antibiotic prescriptions (```NumClaims```), Percent Claims, Rate per 1,000
 
 
 ### **Troubleshooting and Error Reporting**
 
-
 Common issues:
 
-- File not found: Check data/raw/ filenames and update paths in config
-- Column mismatch: Ensure mapping CSVs/ XLSXs have the exact column names
-- Package errors: Run renv::restore() or reinstall required packages
-- Memory limits: Use data.table fread() and run per-year if necessary
+• File not found: Check data/raw/ filenames and update paths in config
+
+• Column mismatch: Ensure mapping CSVs/ XLSXs have the exact column names
+
+• Package errors: Run renv::restore() or reinstall required packages
+
+• Memory limits: Use data.table fread() and run per-year if necessary
 
 
 Report problems:
-- Use the GitHub Issues tab to report bugs or errors you encounter when running the code.
-	- Include: OS, R version, package versions and relevant log output or error messages
-- Pull requests are welcome for bug fixes, enhancements, or documentation improvements
+
+• Use the GitHub Issues tab to report bugs or errors you encounter when running the code. Include package versions and relevant log output or error messages
+	
+• Pull requests are welcome for bug fixes, enhancements, or documentation improvements
 
 
 ### **Reference materials and Further Context**
