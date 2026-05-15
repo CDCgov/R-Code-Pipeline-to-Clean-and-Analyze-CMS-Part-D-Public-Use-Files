@@ -73,7 +73,7 @@ Then run the script from top to bottom.
 
 **By Region** — `Region`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`
 
-**By Region Class Agent** — `Region`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`, antibiotic agent
+**By Region and Agent** — `Region`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`, antibiotic agent
 
 **By Region and Class** — `Region`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`, antibiotic class
 
