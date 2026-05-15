@@ -431,14 +431,15 @@ national_list <- map(years, \(y) {
       Prscrbr_Type = "Other",
       NumPrescribers = sum(NumPrescribers, na.rm = TRUE),
       NumClaims = sum(NumClaims, na.rm= TRUE),
-      PercentClaims = (NumClaims / national_total_claims) * 100,
+      PercentClaims = (NumClaims / national_total_claims) * 100
       year = y)
   #CONCATENATE TOP 8 WITH AGGREGATED OTHER
   final_year_data <- bind_rows(top8, other_aggregate)
+  mutate(rateper1000 = (NumClaims / NumPrescribers) * 1000)
   return(final_year_data)
 })
 
-#big summary table
+#large summary table
 final_national_abx_claims <- bind_rows(national_list)
 
 
@@ -561,6 +562,12 @@ write_two_years <- function(wb, sheet_name, data_2022, data_2023) {
   writeData(wb, sheet = sheet_name,
             x = data_2023,
             startRow = next_row, startCol = 1)
+}
+sort_national_last <- function(df, geo_col) { #makes it alphabetical
+  df %>%
+    mutate(.sort = if_else(.data[[geo_col]] == "National", 1L, 0L)) %>%
+    arrange(.sort, .data[[geo_col]]) %>%
+    select(-.sort)
 }
 write_two_years(
   wb,
