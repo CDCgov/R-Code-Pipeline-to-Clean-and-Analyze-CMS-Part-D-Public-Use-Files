@@ -16,7 +16,6 @@ This pipeline automates the cleaning and analysis of Centers for Medicare and Me
 	• Epidemiologists and analysts working with CMS Part D PUFs
 	• Researchers comparing trends by geography, antibiotic class, and specialty
 	• Program evaluators needing standardized outputs for dashboards and reports
-This pipeline automates the ingestion of CMS Part D PUFs, cleans and standardizes fields, applies geographic and antibiotic class mappings, and produces a single Excel workbook containing analysis-ready summaries at state, region, national, and specialty levels.
 
 
 ### **Data Sources Needed to Run Code:**
@@ -68,15 +67,15 @@ Then run the script from top to bottom.
 
 **By State** — `State`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`
 
-**By Agent** — `State`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`, antibiotic agent
+**By State and Agent** — `State`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`, antibiotic agent
 
-**By Class** — `State`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`, antibiotic class
+**By State and Class** — `State`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`, antibiotic class
 
-**By Regions** — `Region`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`
-
-**By Region and Class** — `Region`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`, antibiotic class
+**By Region** — `Region`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`
 
 **By Region Class Agent** — `Region`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`, antibiotic agent
+
+**By Region and Class** — `Region`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`, antibiotic class
 
 > Regions follow U.S. Census designations (Midwest, Northeast, South, West). The final row in each regional sheet is the national aggregate.
 
@@ -107,7 +106,7 @@ Then run the script from top to bottom.
 
 Common issues:
 
-• File not found: Check data/raw/ filenames and update paths in config
+• File not found: Check that subfolder and file names match the expected structure exactly and that `base_dir` points to the correct location.
 
 • Column mismatch: Ensure mapping CSVs/ XLSXs have the exact column names
 
