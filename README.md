@@ -9,7 +9,7 @@
 
 # **Background**
 
-This R code provides pipeline that automates the cleaning and analysis of Centers for Medicare and Medicaid Services (CMS) Part D Public Use Files (PUF) to track antibiotic use by state, region, drug class and provider specialty. The code outputs a comprehensive Excel file with all datasets/tables created:  by state, state and agent, state and antibiotic class, region, region and agent, region and antibiotic class, national summary of top 8 specialties (prescriber type), and national summary of all prescribers/specialties. 
+This pipeline automates the cleaning and analysis of Centers for Medicare and Medicaid Services (CMS) Part D Public Use Files (PUF) to track antibiotic use by state, region, drug class and provider specialty. The code outputs a comprehensive Excel file with all datasets/tables created:  by state, state and agent, state and antibiotic class, region, region and agent, region and antibiotic class, national summary of top 8 specialties (prescriber type), and national summary of all prescribers/specialties. 
 
 ### **Who is this for**
 	• STLT public health programs monitoring outpatient antibiotic stewardship
@@ -17,36 +17,6 @@ This R code provides pipeline that automates the cleaning and analysis of Center
 	• Researchers comparing trends by geography, antibiotic class, and specialty
 	• Program evaluators needing standardized outputs for dashboards and reports
 This pipeline automates the ingestion of CMS Part D PUFs, cleans and standardizes fields, applies geographic and antibiotic class mappings, and produces a single Excel workbook containing analysis-ready summaries at state, region, national, and specialty levels.
-
-### **What you get (outputs)***
-A single Excel workbook with these sheets:
-
-• By State
-
-• By State and Agent
-
-• By State and Class
-
-• By Region
-
-• By Region and Agent
-
-• By Region and Class
-
-• Top 8 Specialties (national)
-
-• Full Specialty List (national)
-
-
-Each sheet includes standardized fields; see “Metrics and definitions” below.
-
-**Notes on outputs:**
-
-• National rows are included and appear under the State column as “National.” Because sheets are alphabetically sorted, national rows may not appear at the top
-
-• Regions follow U.S. Census designations: Midwest, Northeast, South, West. The last row is the national aggregate 
-
-• For Top 8 Specialities Table, you will have create a new column in Excel to calculate prescribing rate (Number of antibiotic prescriptions/number of prescribers)*1000
 
 
 ### **Data Sources Needed to Run Code:**
@@ -64,6 +34,58 @@ Each sheet includes standardized fields; see “Metrics and definitions” below
 
 • Geocodes for STLT reporting alignment (file name in the code: 'geocodes')
 
+**How to run**
+1. Install RStudio and required packages. The script installs dependencies automatically on first run (tidyverse, openxlsx, dplyr, readr, readxl, purrr, stringr).
+
+2. Set up your folder structure
+The script expects input files organized into three subfolders under a single base directory of your choosing:
+```
+your-base-folder/
+├── Medicare Part D Prescribers - by Geography and Drug/
+│   ├── Medicare_Part_D_Prescribers_by_Geography_and_Drug_2022.csv
+│   └── Medicare_Part_D_Prescribers_by_Geography_and_Drug_2023.csv
+├── Enrollment/
+│   ├── Enrollment2022.xlsx
+│   └── Enrollment2023.xlsx
+└── Medicare Part D Prescribers - by Provider/
+    ├── Medicare_Part_D_Prescribers_by_Provider_2022.csv
+    └── Medicare_Part_D_Prescribers_by_Provider_2023.csv
+```
+
+Subfolder names and file names must match as shown — the script constructs file paths automatically from these names.
+The accessory files (abxorals and geocodes) should be placed wherever you prefer and their paths updated in the script directly.
+
+3. Update the base directory and years
+At the top of the script, update two lines:
+```
+years    <- 2022:2023          # change to whichever years you are analyzing
+base_dir <- "C:/your/path/to/your-base-folder"
+```
+Then run the script from top to bottom.
+
+
+### Information included in final Excel output, by tab/sheet
+
+**By State** — `State`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`
+
+**By Agent** — `State`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`, antibiotic agent
+
+**By Class** — `State`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`, antibiotic class
+
+**By Regions** — `Region`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`
+
+**By Region and Class** — `Region`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`, antibiotic class
+
+**By Region Class Agent** — `Region`, `NumClaims`, `NumPrescribers`, `Enrollees`, prescriptions per 1,000 enrollees, `Year`, antibiotic agent
+
+> Regions follow U.S. Census designations (Midwest, Northeast, South, West). The final row in each regional sheet is the national aggregate.
+
+**Top 8 Prescriber Specialties** — `Prscrbr_Type`, `NumPrescribers`, `NumClaims`, `PercentClaims`, `rate per 1000`, `Year`
+
+**Provider Type Full** — `Prscrbr_Type`, `NumPrescribers`, `NumClaims`, `PercentClaims`, `rateper1000`, `Year`
+
+
+
 **Metrics and definitions**
 
 • NumClaims: Count of antibiotic prescription claims.
@@ -80,28 +102,6 @@ Each sheet includes standardized fields; see “Metrics and definitions” below
 
 • Class: Antibiotic class as defined in the crosswalk.
 
-### **Information included in Final Excel Output, by tab/sheet:**
-
-**By State**: State, number of antibiotic prescriptions (```NumClaims```), number of prescribers (```NumPrescribers```), number of part D enrollees, prescriptions per 1,000 enrollees, year
-
-* <ins>_By state and agent_</ins>: State, number of antibiotic prescriptions (```NumClaims```), number of prescribers (```NumPrescribers```), number of part D enrollees, prescriptions per 1,000 enrollees, year, antibiotic agent
-
-* <ins>_By state and antibiotic class_</ins>: State, number of antibiotic prescriptions (```NumClaims```), number of prescribers(```NumPrescribers```), number of part D enrollees, prescriptions per 1,000 enrollees, year, antibiotic class
-  
-*   These also include 'national' under the 'State' column and it is organized in alphabetical order, so it is not visible at the top. Please be mindful of the 'National' rows.
-
-**By Region**: Region, number of antibiotic prescriptions (```NumClaims```), number of prescribers (```NumPrescribers```), number of part D enrollees, prescriptions per 1,000 enrollees, year
-
-* <ins>_By Region and agent_</ins>: Region, number of antibiotic prescriptions (```NumClaims```), number of prescribers (```NumPrescribers```), number of part D enrollees, prescriptions per 1,000 enrollees, year, agent
-
-* <ins>_By Region and antibiotic class_</ins>: Region, number of antibiotic prescriptions (```NumClaims```), number of prescribers (```NumPrescribers```), number of part D enrollees, prescriptions per 1,000 enrollees, year, antibiotic class
-	  
-
-**Top 8 Specialties**: Prescriber specialty, Number of prescribers (```NumPrescribers```), number of antibiotic prescriptions (```NumClaims```), Year, percent of antibiotic prescriptions, Prescribing rate per 1,000. 
-
-
-**Full Specialty List:**  Prescriber Type (```Prsrbr_type```), Number of prescribers (```NumPrescribers```), Number of antibiotic prescriptions (```NumClaims```), Percent Claims, Rate per 1,000
-
 
 ### **Troubleshooting and Error Reporting**
 
@@ -111,7 +111,7 @@ Common issues:
 
 • Column mismatch: Ensure mapping CSVs/ XLSXs have the exact column names
 
-• Package errors: Run renv::restore() or reinstall required packages
+• Package errors: Reinstall required packages manually: install.packages(c("tidyverse", "openxlsx", "dplyr", "readr", "readxl", "purrr", "stringr"))
 
 • Memory limits: Use data.table fread() and run per-year if necessary
 
