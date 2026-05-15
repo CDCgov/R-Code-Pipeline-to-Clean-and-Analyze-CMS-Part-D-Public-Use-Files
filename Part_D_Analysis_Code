@@ -577,13 +577,13 @@ write_two_years(
 )
 write_two_years(
   wb,
-  sheet_name = "By Class",
+  sheet_name = "By State and Class",
   data_2022 = calc_classrates[["2022"]],
   data_2023 = calc_classrates[["2023"]]
 )
 write_two_years(
   wb,
-  sheet_name = "By Agent",
+  sheet_name = "By State and Agent",
   data_2022 = calc_agentrates[["2022"]],
   data_2023 = calc_agentrates[["2023"]]
 )
