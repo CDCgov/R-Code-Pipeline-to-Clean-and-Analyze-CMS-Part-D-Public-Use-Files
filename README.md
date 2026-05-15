@@ -34,7 +34,7 @@ This pipeline automates the ingestion of CMS Part D PUFs, cleans and standardize
 
 • Geocodes for STLT reporting alignment (file name in the code: 'geocodes')
 
-**How to run**
+## **How to run**
 1. Install RStudio and required packages. The script installs dependencies automatically on first run (tidyverse, openxlsx, dplyr, readr, readxl, purrr, stringr).
 
 2. Set up your folder structure
@@ -80,7 +80,7 @@ Then run the script from top to bottom.
 
 > Regions follow U.S. Census designations (Midwest, Northeast, South, West). The final row in each regional sheet is the national aggregate.
 
-**Top 8 Prescriber Specialties** — `Prscrbr_Type`, `NumPrescribers`, `NumClaims`, `PercentClaims`, `rate per 1000`, `Year`
+**Top 8 Prescriber Specialties** — `Prscrbr_Type`, `NumPrescribers`, `NumClaims`, `PercentClaims`, `rateper1000`, `Year`
 
 **Provider Type Full** — `Prscrbr_Type`, `NumPrescribers`, `NumClaims`, `PercentClaims`, `rateper1000`, `Year`
 
