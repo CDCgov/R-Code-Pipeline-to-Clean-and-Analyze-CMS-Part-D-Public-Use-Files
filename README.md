@@ -5,7 +5,6 @@
 
 - Organization: CDC/NCEZID/DHQP/MPSB
 - Contact email: ncezid_shareit@cdc.gov
-- Additional contact: ag97@cdc.gov, otc9@cdc.gov
 - Description: Automates the cleaning and analysis of CMS Part D PUF to track antibiotic use by state, region, drug class and provider specialty. 
 - Code language: R
 - Share IT exemption status: None
