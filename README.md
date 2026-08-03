@@ -1,8 +1,12 @@
 
-- Organization: NCEZID – DHQP/MPSB
-- Primary contact: ncezid_shareit@cdc.gov
+![Build Status](https://img.shields.io/badge/Released-Version%20-20B2AA?style=for-the-badge)
+
+# Overview
+
+- Organization: CDC/NCEZID/DHQP/MPSB
+- Contact email: ncezid_shareit@cdc.gov
 - Additional contact: ag97@cdc.gov, otc9@cdc.gov
-- Short description: Automates the cleaning and analysis of CMS Part D PUF to track antibiotic use by state, region, drug class and provider specialty. 
+- Description: Automates the cleaning and analysis of CMS Part D PUF to track antibiotic use by state, region, drug class and provider specialty. 
 - Code language: R
 - Share IT exemption status: None
 # R Code Pipeline to Clean and Analyze CMS Part D Public Use Files
