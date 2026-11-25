@@ -32,7 +32,7 @@ This pipeline automates the cleaning and analysis of Centers for Medicare and Me
 
 **Accessory files (crosswalks/mappings) used in this analysis:**
 
-• Antibiotic agent crosswalk (file name in the code: 'abxorals')
+• Antibiotic agent crosswalk (file name in the code: 'abxorals') - available for download in the repository, labeled "iqviaabxorals"
 
 • Geocodes for STLT reporting alignment (file name in the code: 'geocodes')
 
